@@ -48,7 +48,7 @@ function hide(){if(done)return;done=true;clearInterval(tm);
 var c=setInterval(function(){p+=(100-p)*0.35+1;if(p>=100){p=100;clearInterval(c);show();setTimeout(function(){sp.classList.add("hide");setTimeout(function(){sp.style.display="none"},600)},350)}else show()},40)}
 f.addEventListener("load",function(){setTimeout(hide,700)});
 setTimeout(hide,12000);
-f.src="https://script.google.com/macros/s/AKfycbygXZuuaWuLRKp2kbSfOR9_1P4XC_TbMTyXzU83NsQIbp4TViTFauwW_O4QmRnBhh2P/exec"+location.search;
+f.src="https://script.google.com/macros/s/AKfycbygXZuuaWuLRKp2kbSfOR9_1P4XC_TbMTyXzU83NsQIbp4TViTFauwW_O4QmRnBhh2P/exec"+(location.search?location.search+"&":"?")+"via=pages";
 </script>
 <script>if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js");</script>
 </body></html>
