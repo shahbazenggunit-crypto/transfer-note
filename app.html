@@ -1,0 +1,164 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>EUGC Transfer Note</title>
+<style>html,body{margin:0;height:100%;background:#0e1411;color:#9fb3a7;font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}#tnmsg{display:flex;align-items:center;justify-content:center;height:100%;padding:24px;text-align:center;font-size:15px}</style></head>
+<body><div id="tnmsg">Loading…</div>
+<script>
+(function(){
+"use strict";
+var X="https://script.google.com/macros/s/AKfycbygXZuuaWuLRKp2kbSfOR9_1P4XC_TbMTyXzU83NsQIbp4TViTFauwW_O4QmRnBhh2P/exec";
+var params={}; try{ new URLSearchParams(location.search).forEach(function(v,k){params[k]=v;}); }catch(e){} params.via="pages";
+var NOOP=function(){};
+function ls(k,v){ try{ if(v===undefined) return localStorage.getItem(k); if(v===null){ localStorage.removeItem(k); return null; } localStorage.setItem(k,v); return v; }catch(e){ if(v!==undefined&&v!==null) throw new Error("Phone storage is full. Connect to the internet and sync first."); return null; } }
+function jget(k,d){ try{ var s=ls(k); return s?JSON.parse(s):d; }catch(e){ return d; } }
+function hsh(s){ var h=5381; s=String(s); for(var i=0;i<s.length;i++) h=((h<<5)+h+s.charCodeAt(i))|0; return (h>>>0).toString(36); }
+function up(r){ return String(r||"").trim().toUpperCase(); }
+function rid(){ return Math.random().toString(36).slice(2,8); }
+var offline=false, flushing=false;
+
+/* ---- network ---- */
+function net(fn,args,ms){
+  var ctl=window.AbortController?new AbortController():null, to=ctl?setTimeout(function(){ctl.abort();},ms||90000):0;
+  return fetch(X,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({fn:fn,args:args}),signal:ctl?ctl.signal:undefined})
+    .then(function(r){ clearTimeout(to); return r.json(); },function(){ clearTimeout(to); var e=new Error("OFFLINE"); e.offline=true; throw e; })
+    .then(function(j){ offline=false; bar(); if(j&&j.ok) return j.result; throw new Error((j&&j.error)||"Server error. Try again."); });
+}
+function netR(fn,args,ms){ return net(fn,args,ms).catch(function(e){ if(e&&e.offline&&navigator.onLine!==false){ return new Promise(function(r){setTimeout(r,900);}).then(function(){ return net(fn,args,ms); }); } throw e; }).catch(function(e){ if(e&&e.offline){ offline=true; bar(); } throw e; }); }
+function needNet(){ return new Error("No internet. Connect and try again."); }
+function guard(fn,args){ return netR(fn,args).catch(function(e){ if(e&&e.offline) throw needNet(); throw e; }); }
+
+/* ---- queue of offline work ---- */
+function getQ(){ return jget("tn-q",[]); }
+function setQ(q){ ls("tn-q",JSON.stringify(q)); }
+function pend(){ return getQ().filter(function(j){return j.fn==="saveNote";}); }
+function synth(n,orig,owner,base){
+  var items=(n.items||[]).filter(function(it){return (it.desc||"").trim()||it.qty||(it.stock||"").trim();});
+  var tot=items.reduce(function(s,it){return s+(parseFloat(it.qty)||0);},0);
+  return Object.assign({},base||{},n,{items:items,total:tot,status:(base&&base.rcName)?"Received":(n.status||"Pending"),ownerName:(base&&base.ownerName)||(owner&&owner.name)||"",savedAt:new Date().toISOString(),photoIds:n.photoIds||[],_pending:true});
+}
+function nkey(code,owner){ return "tn-notes-"+hsh(code+"|"+(owner&&owner.name||"")+"|"+(owner&&owner.pin||"")); }
+function mergePending(list,code,owner){
+  var out=list.slice();
+  pend().forEach(function(j){
+    var n=j.args[0], orig=j.args[1]; var id=up(n.ref), oid=up(orig);
+    var idx=-1; out.forEach(function(x,i){ if(up(x.ref)===id||(oid&&up(x.ref)===oid)) idx=i; });
+    var s=synth(n,orig,j.args[3],idx>=0?out[idx]:null);
+    if(idx>=0) out[idx]=s; else out.unshift(s);
+  });
+  return out;
+}
+async function flush(){
+  if(flushing) return; flushing=true; var did=0;
+  try{
+    var map=jget("tn-qmap",{});
+    for(;;){
+      var q=getQ(), j=null; for(var i=0;i<q.length;i++){ if(!q[i].err){ j=q[i]; break; } }
+      if(!j) break;
+      var args=JSON.parse(JSON.stringify(j.args).replace(/q-[a-z0-9]{6}/g,function(m){return map[m]||m;}));
+      try{
+        if(j.fn==="uploadPhoto"){ var real=await net("uploadPhoto",args); map[j.qid]=real; ls("tn-qmap",JSON.stringify(map)); }
+        else if(j.fn==="saveNote"){
+          try{ await net("saveNote",args); }
+          catch(e){
+            if(e&&e.offline) throw e;
+            if(String(e.message).indexOf("already used")>=0&&!args[1]){
+              var mine=await net("listNotes",[args[2],args[3]]);
+              var has=mine.some(function(x){return up(x.ref)===up(args[0].ref);});
+              if(!has){ args[0].ref=args[0].ref+"-"+Math.floor(10+Math.random()*90); await net("saveNote",args); }
+            } else throw e;
+          }
+        }
+        q=getQ().filter(function(x){return x.id!==j.id;}); setQ(q); did++;
+      }catch(e){
+        if(e&&e.offline) break;
+        q=getQ(); q.forEach(function(x){ if(x.id===j.id) x.err=String(e.message||e); }); setQ(q);
+      }
+    }
+  }finally{ flushing=false; bar(); }
+  if(did&&window.refresh){ try{ window.refresh(); }catch(e){} toast("Offline notes synced"); }
+}
+function retryFailed(){ var q=getQ(); q.forEach(function(x){ delete x.err; }); setQ(q); flush(); }
+
+/* ---- routes (same names as the Apps Script functions) ---- */
+var routes={
+  verifyCode:function(a){ var code=a[0], k="tn-ver-"+hsh(code);
+    return netR("verifyCode",a).then(function(r){ try{ ls(k,r==="admin"?"a":"u"); }catch(e){} return r; },function(e){
+      if(e&&e.offline){ var c=ls(k); if(c) return c==="a"?"admin":true; throw new Error("No internet. Open the app once online first."); }
+      if(String(e.message).indexOf("ACCESS_DENIED")>=0) ls(k,null); throw e; }); },
+  getAppUrl:function(a){ return netR("getAppUrl",a).then(function(r){ ls("tn-appurl",r); return r; },function(e){ var c=ls("tn-appurl"); if(c) return c; throw e; }); },
+  listNotes:function(a){ var code=a[0], owner=a[1], k=nkey(code,owner);
+    return netR("listNotes",a).then(function(list){ try{ ls(k,JSON.stringify(list)); }catch(e){} flush(); return mergePending(list,code,owner); },function(e){
+      if(e&&e.offline){ var c=jget(k,null); if(c) return mergePending(c,code,owner); if(pend().length) return mergePending([],code,owner); throw new Error("No internet. Open the app once online to load your notes."); } throw e; }); },
+  saveNote:async function(a){
+    var n=a[0], orig=a[1], code=a[2], owner=a[3];
+    if(getQ().length) await flush();
+    try{ return await netR("saveNote",a); }
+    catch(e){
+      if(!(e&&e.offline)) throw e;
+      var q=getQ(); q=q.filter(function(x){ return !(x.fn==="saveNote"&&up(x.args[0].ref)===up(n.ref)&&!x.err); });
+      q.push({id:rid()+Date.now(),fn:"saveNote",args:a,t:Date.now()}); setQ(q); bar();
+      var base=null; var c=jget(nkey(code,owner),[]); c.forEach(function(x){ if(up(x.ref)===up(orig||n.ref)) base=x; });
+      return synth(n,orig,owner,base);
+    }
+  },
+  uploadPhoto:function(a){
+    return netR("uploadPhoto",a).catch(function(e){
+      if(!(e&&e.offline)) throw e;
+      var qid="q-"+rid(), q=getQ(); q.push({id:qid,qid:qid,fn:"uploadPhoto",args:a,t:Date.now()}); setQ(q); bar(); return qid;
+    });
+  },
+  getPhoto:function(a){
+    if(/^q-/.test(a[0])){ var j=getQ().filter(function(x){return x.qid===a[0];})[0]; if(j) return Promise.resolve(j.args[0]); var m=jget("tn-qmap",{}); if(m[a[0]]) a=[m[a[0]],a[1]]; else return Promise.reject(new Error("Photo not available.")); }
+    return guard("getPhoto",a);
+  },
+  receiverToken:function(a){ var k="tn-rt-"+hsh(a[0]); return netR("receiverToken",a).then(function(r){ try{ ls(k,r); }catch(e){} return r; },function(e){ var c=ls(k); if(c) return c; throw e; }); }
+};
+function handle(fn,a){
+  try{ var r=routes[fn]?routes[fn](a):guard(fn,a); return Promise.resolve(r); }catch(e){ return Promise.reject(e); }
+}
+function mk(ok,fail){
+  return new Proxy({},{get:function(_,k){
+    if(k==="withSuccessHandler") return function(f){ return mk(f,fail); };
+    if(k==="withFailureHandler") return function(f){ return mk(ok,f); };
+    return function(){ var a=[].slice.call(arguments); handle(k,a).then(ok||NOOP,fail||NOOP); };
+  }});
+}
+window.google={script:{run:mk(),url:{getLocation:function(cb){ cb({parameter:params,parameters:{}}); }}}};
+
+/* ---- status bar ---- */
+function toast(t){ var b=bar(true); if(!b) return; b.textContent=t; b.style.display="block"; setTimeout(function(){ bar(); },2600); }
+function bar(force){
+  if(!document.body) return null;
+  var b=document.getElementById("tn-bar");
+  if(!b){ b=document.createElement("div"); b.id="tn-bar"; b.style.cssText="position:fixed;left:8px;right:8px;bottom:8px;z-index:99999;display:none;padding:9px 12px;border-radius:10px;font:600 13px system-ui,Arial,sans-serif;text-align:center;box-shadow:0 4px 18px rgba(0,0,0,.35);cursor:pointer"; b.onclick=function(){ if(window.__tnUpdate) location.reload(); else retryFailed(); }; document.body.appendChild(b); }
+  if(force) return b;
+  var q=getQ(), n=q.filter(function(x){return x.fn==="saveNote";}).length, bad=q.filter(function(x){return x.err;}).length, t="", bg="#b45309", fg="#fff";
+  if(bad){ t=bad+" note(s) could not sync: "+(q.filter(function(x){return x.err;})[0].err)+" - tap to retry"; bg="#b91c1c"; }
+  else if(offline||navigator.onLine===false){ t="Offline"+(n?" - "+n+" note(s) waiting to sync":" - you can still create notes"); }
+  else if(n||q.length){ t="Syncing "+(n||q.length)+" item(s)..."; bg="#0a3c23"; }
+  else if(window.__tnUpdate){ t="Update ready. Tap here, or reopen the app."; bg="#0a3c23"; }
+  if(t){ b.textContent=t; b.style.background=bg; b.style.color=fg; b.style.display="block"; } else b.style.display="none";
+  return b;
+}
+
+/* ---- load the app (cached copy first, so it opens without internet) ---- */
+function msg(t){ var m=document.getElementById("tnmsg"); if(m) m.textContent=t; }
+function cacheGet(){ return window.caches?caches.open("tn-html").then(function(c){return c.match("/app-html");}).then(function(r){return r?r.text():null;}).catch(function(){return null;}):Promise.resolve(null); }
+function cachePut(h){ return window.caches?caches.open("tn-html").then(function(c){return c.put("/app-html",new Response(h));}).catch(NOOP):Promise.resolve(); }
+function fetchHtml(){ return fetch(X+"?api=html").then(function(r){return r.json();}).then(function(j){ if(!j||!j.html||j.html.length<5000) throw new Error("bad"); return j.html; }); }
+function boot(html){
+  window.__tnInit=function(){
+    try{ parent.postMessage("tn-ready","*"); }catch(e){}
+    bar();
+    window.addEventListener("online",function(){ offline=false; bar(); flush(); });
+    window.addEventListener("offline",function(){ offline=true; bar(); });
+    setInterval(function(){ if(navigator.onLine!==false&&getQ().length) flush(); },30000);
+    setTimeout(function(){ if(navigator.onLine!==false&&getQ().length) flush(); },2500);
+  };
+  document.open(); document.write(html+"<scr"+"ipt>window.__tnInit&&window.__tnInit()</scr"+"ipt>"); document.close();
+}
+cacheGet().then(function(cached){
+  if(cached){ boot(cached); fetchHtml().then(function(h){ if(h!==cached){ cachePut(h).then(function(){ window.__tnUpdate=true; bar(); }); } }).catch(NOOP); return; }
+  msg("Loading app… (first open needs internet)");
+  fetchHtml().then(function(h){ cachePut(h); boot(h); }).catch(function(){ msg("No internet. Open the app once with internet, then it works offline."); try{ parent.postMessage("tn-ready","*"); }catch(e){} });
+});
+})();
+</script></body></html>
