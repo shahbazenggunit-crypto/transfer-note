@@ -146,10 +146,51 @@ function bar(force){
   var FS=C.registerPlugin("Filesystem"), SH=C.registerPlugin("Share"), blobs={};
   var oc=URL.createObjectURL; URL.createObjectURL=function(b){ var u=oc.call(URL,b); try{ blobs[u]=b; }catch(e){} return u; };
   function b64(b){ return new Promise(function(res,rej){ var f=new FileReader(); f.onload=function(){ res(String(f.result).split(",")[1]); }; f.onerror=rej; f.readAsDataURL(b); }); }
-  function out(b,name,title,text){
-    return b64(b).then(function(d){ return FS.writeFile({path:name||"file",data:d,directory:"CACHE",recursive:true}); })
-      .then(function(w){ return SH.share({title:title||name||"File",text:text||"",url:w.uri,dialogTitle:"Save or share"}); });
+  var FO=C.registerPlugin("FileOpener");
+  var MIME={pdf:"application/pdf",png:"image/png",jpg:"image/jpeg",xlsx:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",json:"application/json",eml:"message/rfc822"};
+  function ext(n){ var m=/\.([a-z0-9]+)$/i.exec(n||""); return m?m[1].toLowerCase():""; }
+  function save(b,name){
+    name=String(name||"file").replace(/[\\/:*?"<>|]+/g,"_");
+    return b64(b).then(function(d){ return FS.writeFile({path:"downloads/"+name,data:d,directory:"DATA",recursive:true}); }).then(function(w){
+      var list=jget("tn-files",[]).filter(function(f){ return f.name!==name; });
+      list.unshift({name:name,uri:w.uri,t:Date.now(),size:b.size||0,mime:b.type||MIME[ext(name)]||""});
+      try{ ls("tn-files",JSON.stringify(list.slice(0,60))); }catch(e){}
+      return w;
+    });
   }
+  function out(b,name,title,text){
+    return save(b,name).then(function(w){ return SH.share({title:title||name||"File",text:text||"",url:w.uri,dialogTitle:"Save or share"}); });
+  }
+  function kb(n){ return n>1048576?(n/1048576).toFixed(1)+" MB":Math.max(1,Math.round(n/1024))+" KB"; }
+  function mkBtn(t,fn,red){ var x=document.createElement("button"); x.textContent=t; x.style.cssText="flex:1;padding:10px 6px;border-radius:9px;border:1px solid #2a3a31;background:"+(red?"#3a1515":"#16241c")+";color:"+(red?"#ffb4b4":"#e8f3ec")+";font:600 13px system-ui,Arial,sans-serif"; x.onclick=fn; return x; }
+  function openFile(f){ return FO.open({filePath:f.uri,contentType:f.mime||MIME[ext(f.name)]||"*/*",openWithDefault:false}).catch(function(){ return SH.share({title:f.name,url:f.uri,dialogTitle:"Open or share"}); }); }
+  function panel(){
+    var o=document.getElementById("tn-files"); if(o) o.parentNode.removeChild(o);
+    o=document.createElement("div"); o.id="tn-files";
+    o.style.cssText="position:fixed;top:0;left:0;right:0;bottom:0;z-index:100000;background:#0e1411;color:#e8f3ec;font:15px system-ui,Arial,sans-serif;overflow:auto;padding:16px 16px 48px;box-sizing:border-box";
+    var h=document.createElement("div"); h.style.cssText="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px";
+    var t=document.createElement("b"); t.textContent="Downloaded files"; t.style.fontSize="19px";
+    var cl=mkBtn("Close",function(){ o.parentNode.removeChild(o); }); cl.style.flex="none"; cl.style.padding="8px 16px";
+    h.appendChild(t); h.appendChild(cl); o.appendChild(h);
+    var sub=document.createElement("div"); sub.textContent="PDF, image, Excel and backup files you export are kept here."; sub.style.cssText="color:#8aa294;font-size:13px;margin-bottom:14px"; o.appendChild(sub);
+    var list=jget("tn-files",[]);
+    if(!list.length){ var e=document.createElement("div"); e.textContent="No files yet."; e.style.cssText="padding:30px 0;text-align:center;color:#8aa294"; o.appendChild(e); }
+    list.forEach(function(f){
+      var c=document.createElement("div"); c.style.cssText="background:#14201a;border:1px solid #24372c;border-radius:12px;padding:12px;margin-bottom:10px";
+      var n=document.createElement("div"); n.textContent=f.name; n.style.cssText="font-weight:700;word-break:break-all";
+      var m=document.createElement("div"); m.textContent=new Date(f.t).toLocaleString()+"  -  "+kb(f.size); m.style.cssText="color:#8aa294;font-size:12px;margin:3px 0 10px";
+      var r=document.createElement("div"); r.style.cssText="display:flex;gap:8px";
+      r.appendChild(mkBtn("Open",function(){ openFile(f); }));
+      r.appendChild(mkBtn("Share",function(){ SH.share({title:f.name,url:f.uri,dialogTitle:"Share"}).catch(function(){}); }));
+      r.appendChild(mkBtn("Delete",function(){
+        if(!confirm("Delete "+f.name+"?")) return;
+        FS.deleteFile({path:"downloads/"+f.name,directory:"DATA"}).catch(function(){}).then(function(){ ls("tn-files",JSON.stringify(jget("tn-files",[]).filter(function(x){ return x.name!==f.name; }))); panel(); });
+      },true));
+      c.appendChild(n); c.appendChild(m); c.appendChild(r); o.appendChild(c);
+    });
+    document.body.appendChild(o);
+  }
+  window.tnFiles={open:panel};
   var ac=HTMLAnchorElement.prototype.click;
   HTMLAnchorElement.prototype.click=function(){
     var a=this;
