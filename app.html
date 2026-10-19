@@ -143,7 +143,8 @@ function bar(force){
 function msg(t){ var m=document.getElementById("tnmsg"); if(m) m.textContent=t; }
 function cacheGet(){ return window.caches?caches.open("tn-html").then(function(c){return c.match("/app-html");}).then(function(r){return r?r.text():null;}).catch(function(){return null;}):Promise.resolve(null); }
 function cachePut(h){ return window.caches?caches.open("tn-html").then(function(c){return c.put("/app-html",new Response(h));}).catch(NOOP):Promise.resolve(); }
-function fetchHtml(){ return fetch(X+"?api=html").then(function(r){return r.json();}).then(function(j){ if(!j||!j.html||j.html.length<5000) throw new Error("bad"); return j.html; }); }
+function fetchHtml(){ return fetch(X+"?api=html").then(function(r){return r.json();}).then(function(j){ if(!j||!j.html||j.html.length<5000) throw new Error("bad"); return j; }); }
+function fetchVer(){ return fetch(X+"?api=ver").then(function(r){return r.json();}).then(function(j){ return j&&j.v; }); }
 function boot(html){
   window.__tnInit=function(){
     try{ parent.postMessage("tn-ready","*"); }catch(e){}
@@ -156,9 +157,9 @@ function boot(html){
   document.open(); document.write(html+"<scr"+"ipt>window.__tnInit&&window.__tnInit()</scr"+"ipt>"); document.close();
 }
 cacheGet().then(function(cached){
-  if(cached){ boot(cached); fetchHtml().then(function(h){ if(h!==cached){ cachePut(h).then(function(){ window.__tnUpdate=true; bar(); }); } }).catch(NOOP); return; }
+  if(cached){ boot(cached); fetchVer().then(function(v){ if(v&&v!==ls("tn-appv")){ return fetchHtml().then(function(j){ return cachePut(j.html).then(function(){ ls("tn-appv",j.v); if(j.html!==cached){ window.__tnUpdate=true; bar(); } }); }); } }).catch(NOOP); return; }
   msg("Loading app… (first open needs internet)");
-  fetchHtml().then(function(h){ cachePut(h); boot(h); }).catch(function(){ msg("No internet. Open the app once with internet, then it works offline."); try{ parent.postMessage("tn-ready","*"); }catch(e){} });
+  fetchHtml().then(function(j){ cachePut(j.html); try{ ls("tn-appv",j.v); }catch(e){} boot(j.html); }).catch(function(){ msg("No internet. Open the app once with internet, then it works offline."); try{ parent.postMessage("tn-ready","*"); }catch(e){} });
 });
 })();
 </script></body></html>
