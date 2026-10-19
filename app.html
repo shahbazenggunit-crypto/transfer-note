@@ -18,7 +18,7 @@ var offline=false, flushing=false;
 function net(fn,args,ms){
   var ctl=window.AbortController?new AbortController():null, to=ctl?setTimeout(function(){ctl.abort();},ms||90000):0;
   return fetch(X,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({fn:fn,args:args}),signal:ctl?ctl.signal:undefined})
-    .then(function(r){ clearTimeout(to); return r.json(); },function(){ clearTimeout(to); var e=new Error("OFFLINE"); e.offline=true; throw e; })
+    .then(function(r){ clearTimeout(to); return r.json(); },function(err){ clearTimeout(to); var e=new Error("OFFLINE"); e.offline=true; e.detail=String(err&&err.message||err); throw e; })
     .then(function(j){ offline=false; bar(); if(j&&j.ok) return j.result; throw new Error((j&&j.error)||"Server error. Try again."); });
 }
 function netR(fn,args,ms){ return net(fn,args,ms).catch(function(e){ if(e&&e.offline&&navigator.onLine!==false){ return new Promise(function(r){setTimeout(r,900);}).then(function(){ return net(fn,args,ms); }); } throw e; }).catch(function(e){ if(e&&e.offline){ offline=true; bar(); } throw e; }); }
@@ -81,7 +81,7 @@ function retryFailed(){ var q=getQ(); q.forEach(function(x){ delete x.err; }); s
 var routes={
   verifyCode:function(a){ var code=a[0], k="tn-ver-"+hsh(code);
     return netR("verifyCode",a).then(function(r){ try{ ls(k,r==="admin"?"a":"u"); }catch(e){} return r; },function(e){
-      if(e&&e.offline){ var c=ls(k); if(c) return c==="a"?"admin":true; throw new Error("No internet. Open the app once online first."); }
+      if(e&&e.offline){ var c=ls(k); if(c) return c==="a"?"admin":true; throw new Error("No internet. Open the app once online first. ["+(e.detail||"?")+"]"); }
       if(String(e.message).indexOf("ACCESS_DENIED")>=0) ls(k,null); throw e; }); },
   getAppUrl:function(a){ return netR("getAppUrl",a).then(function(r){ ls("tn-appurl",r); return r; },function(e){ var c=ls("tn-appurl"); if(c) return c; throw e; }); },
   listNotes:function(a){ var code=a[0], owner=a[1], k=nkey(code,owner);
@@ -140,7 +140,7 @@ function bar(force){
 }
 
 /* ---- Android app (APK): save / share files through the phone's share sheet ---- */
-(function(){
+(function(){ try{
   var C=null; try{ C=window.Capacitor||(parent&&parent.Capacitor); }catch(e){}
   if(!C||!C.isNativePlatform||!C.isNativePlatform()) return;
   var FS=C.registerPlugin("Filesystem"), SH=C.registerPlugin("Share"), blobs={};
@@ -162,14 +162,18 @@ function bar(force){
     if(f) return out(f,f.name,o.title,o.text);
     return SH.share({title:o.title||"",text:o.text||"",url:o.url||undefined,dialogTitle:"Share"});
   };
-})();
+}catch(e){} })();
 
 /* ---- load the app (cached copy first, so it opens without internet) ---- */
 function msg(t){ var m=document.getElementById("tnmsg"); if(m) m.textContent=t; }
 function cacheGet(){ return window.caches?caches.open("tn-html").then(function(c){return c.match("/app-html");}).then(function(r){return r?r.text():null;}).catch(function(){return null;}):Promise.resolve(null); }
 function cachePut(h){ return window.caches?caches.open("tn-html").then(function(c){return c.put("/app-html",new Response(h));}).catch(NOOP):Promise.resolve(); }
-function fetchHtml(){ return fetch(X+"?api=html").then(function(r){return r.json();}).then(function(j){ if(!j||!j.html||j.html.length<5000) throw new Error("bad"); return j; }); }
-function fetchVer(){ return fetch(X+"?api=ver").then(function(r){return r.json();}).then(function(j){ return j&&j.v; }); }
+function tmo(p,ms){ return new Promise(function(res,rej){ var t=setTimeout(function(){ rej(new Error("timed out")); },ms); p.then(function(v){ clearTimeout(t); res(v); },function(e){ clearTimeout(t); rej(e); }); }); }
+function fetchHtml(){ return tmo(fetch(X+"?api=html").then(function(r){return r.json();}),60000).then(function(j){ if(!j||!j.html||j.html.length<5000) throw new Error("bad reply"); return j; }); }
+function fetchVer(){ return tmo(fetch(X+"?api=ver").then(function(r){return r.json();}),30000).then(function(j){ return j&&j.v; }); }
+function fetchBundled(){ return fetch("bundled.html").then(function(r){ if(!r.ok) throw new Error("none"); return r.text(); }).then(function(h){ if(h.length<5000) throw new Error("none"); return fetch("bundled.ver").then(function(r){ return r.ok?r.text():""; }).catch(function(){ return ""; }).then(function(v){ return {html:h,v:String(v).trim()}; }); }); }
+function checkUpdate(cur){ fetchVer().then(function(v){ if(v&&v!==ls("tn-appv")){ return fetchHtml().then(function(j){ return cachePut(j.html).then(function(){ ls("tn-appv",j.v); if(j.html!==cur){ window.__tnUpdate=true; bar(); } }); }); } }).catch(NOOP); }
+function fail(e){ var m=document.getElementById("tnmsg"); if(m){ m.textContent="Could not load the app ("+(e&&e.message||e)+"). Check internet and tap here to try again."; m.onclick=function(){ location.reload(); }; } try{ parent.postMessage("tn-ready","*"); }catch(x){} }
 function boot(html){
   window.__tnInit=function(){
     try{ parent.postMessage("tn-ready","*"); }catch(e){}
@@ -182,9 +186,11 @@ function boot(html){
   document.open(); document.write(html+"<scr"+"ipt>window.__tnInit&&window.__tnInit()</scr"+"ipt>"); document.close();
 }
 cacheGet().then(function(cached){
-  if(cached){ boot(cached); fetchVer().then(function(v){ if(v&&v!==ls("tn-appv")){ return fetchHtml().then(function(j){ return cachePut(j.html).then(function(){ ls("tn-appv",j.v); if(j.html!==cached){ window.__tnUpdate=true; bar(); } }); }); } }).catch(NOOP); return; }
-  msg("Loading app… (first open needs internet)");
-  fetchHtml().then(function(j){ cachePut(j.html); try{ ls("tn-appv",j.v); }catch(e){} boot(j.html); }).catch(function(){ msg("No internet. Open the app once with internet, then it works offline."); try{ parent.postMessage("tn-ready","*"); }catch(e){} });
+  if(cached){ boot(cached); checkUpdate(cached); return; }
+  fetchBundled().then(function(b){ cachePut(b.html); if(b.v) ls("tn-appv",b.v); boot(b.html); checkUpdate(b.html); },function(){
+    msg("Loading app... (first open needs internet)");
+    fetchHtml().then(function(j){ cachePut(j.html); try{ ls("tn-appv",j.v); }catch(e){} boot(j.html); }).catch(fail);
+  });
 });
 })();
 </script></body></html>
