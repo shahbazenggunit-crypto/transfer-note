@@ -54,7 +54,7 @@ jobs:
         working-directory: build
         run: |
           npm init -y
-          npm i @capacitor/core@7 @capacitor/cli@7 @capacitor/android@7 @capacitor/filesystem@7 @capacitor/share@7
+          npm i @capacitor/core@7 @capacitor/cli@7 @capacitor/android@7 @capacitor/filesystem@7 @capacitor/share@7 @capacitor-community/file-opener@7.0.1
           npx cap init "Transfer Note" com.eugc.transfernote --web-dir www
           npx cap add android
           python3 -m pip install --quiet pillow
