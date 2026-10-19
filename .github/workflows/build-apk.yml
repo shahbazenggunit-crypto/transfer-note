@@ -5,6 +5,7 @@ on:
   push:
     paths:
       - '.github/workflows/build-apk.yml'
+      - 'app.html'
 
 permissions:
   contents: write
@@ -23,6 +24,18 @@ jobs:
         with:
           distribution: temurin
           java-version: 21
+
+      - name: Bundle current app code
+        run: |
+          mkdir -p build/www
+          curl -sSL --retry 3 -m 120 "https://script.google.com/macros/s/AKfycbygXZuuaWuLRKp2kbSfOR9_1P4XC_TbMTyXzU83NsQIbp4TViTFauwW_O4QmRnBhh2P/exec?api=html" -o build/page.json
+          python3 - <<'PY'
+          import json
+          d=json.load(open('build/page.json'))
+          assert len(d['html'])>100000, 'app code too small'
+          open('build/www/bundled.html','w').write(d['html'])
+          open('build/www/bundled.ver','w').write(d['v'])
+          PY
 
       - name: Prepare web files
         run: |
