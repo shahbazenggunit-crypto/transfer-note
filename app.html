@@ -139,6 +139,31 @@ function bar(force){
   return b;
 }
 
+/* ---- Android app (APK): save / share files through the phone's share sheet ---- */
+(function(){
+  var C=null; try{ C=window.Capacitor||(parent&&parent.Capacitor); }catch(e){}
+  if(!C||!C.isNativePlatform||!C.isNativePlatform()) return;
+  var FS=C.registerPlugin("Filesystem"), SH=C.registerPlugin("Share"), blobs={};
+  var oc=URL.createObjectURL; URL.createObjectURL=function(b){ var u=oc.call(URL,b); try{ blobs[u]=b; }catch(e){} return u; };
+  function b64(b){ return new Promise(function(res,rej){ var f=new FileReader(); f.onload=function(){ res(String(f.result).split(",")[1]); }; f.onerror=rej; f.readAsDataURL(b); }); }
+  function out(b,name,title,text){
+    return b64(b).then(function(d){ return FS.writeFile({path:name||"file",data:d,directory:"CACHE",recursive:true}); })
+      .then(function(w){ return SH.share({title:title||name||"File",text:text||"",url:w.uri,dialogTitle:"Save or share"}); });
+  }
+  var ac=HTMLAnchorElement.prototype.click;
+  HTMLAnchorElement.prototype.click=function(){
+    var a=this;
+    if(a.download&&blobs[a.href]){ out(blobs[a.href],a.download).catch(function(e){ try{ alert("Could not save the file: "+(e&&e.message||e)); }catch(x){} }); return; }
+    return ac.apply(a,arguments);
+  };
+  navigator.canShare=function(o){ return true; };
+  navigator.share=function(o){
+    o=o||{}; var f=o.files&&o.files[0];
+    if(f) return out(f,f.name,o.title,o.text);
+    return SH.share({title:o.title||"",text:o.text||"",url:o.url||undefined,dialogTitle:"Share"});
+  };
+})();
+
 /* ---- load the app (cached copy first, so it opens without internet) ---- */
 function msg(t){ var m=document.getElementById("tnmsg"); if(m) m.textContent=t; }
 function cacheGet(){ return window.caches?caches.open("tn-html").then(function(c){return c.match("/app-html");}).then(function(r){return r?r.text():null;}).catch(function(){return null;}):Promise.resolve(null); }
