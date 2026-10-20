@@ -151,7 +151,7 @@ function bar(force){
   function ext(n){ var m=/\.([a-z0-9]+)$/i.exec(n||""); return m?m[1].toLowerCase():""; }
   function save(b,name){
     name=String(name||"file").replace(/[\\/:*?"<>|]+/g,"_");
-    return b64(b).then(function(d){ return FS.writeFile({path:"downloads/"+name,data:d,directory:"DATA",recursive:true}); }).then(function(w){
+    return b64(b).then(function(d){ return FS.writeFile({path:"downloads/"+name,data:d,directory:"EXTERNAL",recursive:true}); }).then(function(w){
       var list=jget("tn-files",[]).filter(function(f){ return f.name!==name; });
       list.unshift({name:name,uri:w.uri,t:Date.now(),size:b.size||0,mime:b.type||MIME[ext(name)]||""});
       try{ ls("tn-files",JSON.stringify(list.slice(0,60))); }catch(e){}
@@ -185,7 +185,7 @@ function bar(force){
       r.appendChild(mkBtn("Share",function(){ SH.share({title:f.name,url:f.uri,dialogTitle:"Share"}).catch(function(){}); }));
       r.appendChild(mkBtn("Delete",function(){
         if(!confirm("Delete "+f.name+"?")) return;
-        FS.deleteFile({path:"downloads/"+f.name,directory:"DATA"}).catch(function(){}).then(function(){ ls("tn-files",JSON.stringify(jget("tn-files",[]).filter(function(x){ return x.name!==f.name; }))); panel(); });
+        FS.deleteFile({path:"downloads/"+f.name,directory:"EXTERNAL"}).catch(function(){}).then(function(){ ls("tn-files",JSON.stringify(jget("tn-files",[]).filter(function(x){ return x.name!==f.name; }))); panel(); });
       },true));
       c.appendChild(n); c.appendChild(m); c.appendChild(r); o.appendChild(c);
     });
@@ -195,17 +195,21 @@ function bar(force){
     var q=document.getElementById("tn-toast"); if(q&&q.parentNode) q.parentNode.removeChild(q);
     if(!document.body) return;
     var t=document.createElement("div"); t.id="tn-toast";
-    t.style.cssText="position:fixed;left:12px;right:12px;bottom:78px;z-index:100001;background:#16241c;color:#e8f3ec;border:1px solid #2f9e62;border-radius:12px;padding:12px;font:14px system-ui,Arial,sans-serif;display:flex;gap:10px;align-items:center;box-shadow:0 6px 24px rgba(0,0,0,.5)";
+    t.style.cssText="position:fixed;left:12px;right:12px;bottom:62px;z-index:100001;background:#16241c;color:#e8f3ec;border:1px solid #2f9e62;border-radius:12px;padding:12px;font:14px system-ui,Arial,sans-serif;display:flex;gap:10px;align-items:center;box-shadow:0 6px 24px rgba(0,0,0,.5)";
     var m=document.createElement("div"); m.style.flex="1"; m.style.wordBreak="break-all"; m.textContent="Saved in app Files: "+name;
     var b=mkBtn("Open Files",function(){ t.parentNode&&t.parentNode.removeChild(t); panel(); }); b.style.flex="none"; b.style.padding="8px 12px";
     t.appendChild(m); t.appendChild(b); document.body.appendChild(t);
     setTimeout(function(){ if(t.parentNode) t.parentNode.removeChild(t); },12000);
   }
   function fab(){
-    if(!document.body||document.getElementById("tn-fab")) return;
-    var f=document.createElement("button"); f.id="tn-fab"; f.textContent="Files";
-    f.style.cssText="position:fixed;right:14px;bottom:16px;z-index:99999;padding:12px 18px;border-radius:26px;border:0;background:#2f9e62;color:#fff;font:700 14px system-ui,Arial,sans-serif;box-shadow:0 4px 16px rgba(0,0,0,.4)";
+    if(!document.body) return;
+    var f=document.getElementById("tn-fab");
+    var n=jget("tn-files",[]).length;
+    if(f){ f.textContent="Downloads ("+n+")"; return; }
+    f=document.createElement("button"); f.id="tn-fab"; f.textContent="Downloads ("+n+")";
+    f.style.cssText="position:fixed;left:0;right:0;bottom:0;height:52px;z-index:99999;border:0;border-top:1px solid #2a3a31;background:#16241c;color:#e8f3ec;font:700 15px system-ui,Arial,sans-serif";
     f.onclick=panel; document.body.appendChild(f);
+    document.body.style.paddingBottom="56px";
   }
   setInterval(fab,1500);
   window.tnFiles={open:panel};
