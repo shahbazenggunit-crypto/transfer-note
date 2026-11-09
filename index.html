@@ -1,54 +1,32 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><link rel="manifest" href="manifest.webmanifest"><meta name="theme-color" content="#0a3c23"><link rel="icon" href="icon-192.png"><link rel="apple-touch-icon" href="icon-192.png"><title>EUGC Transfer Note</title>
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="robots" content="noindex,nofollow"><title>Link Expired</title>
 <style>
-html,body{margin:0;height:100%;background:#0e1411;overflow:hidden}
-iframe{position:fixed;inset:0;width:100%;height:100%;border:0}
-#splash{position:fixed;inset:0;z-index:5;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;text-align:center;padding:24px;box-sizing:border-box;color:#e8f3ec;font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;background:radial-gradient(120% 90% at 50% 0%,#14402a 0%,#0e1411 62%);transition:opacity .5s ease,visibility .5s}
-#splash.hide{opacity:0;visibility:hidden}
-#splash .logo{width:92px;height:92px;border-radius:22px;box-shadow:0 0 0 1px rgba(34,197,94,.35),0 12px 40px rgba(34,197,94,.22);animation:pop .8s cubic-bezier(.2,.9,.3,1.2) both,glow 2.4s ease-in-out .8s infinite}
-#splash .co{margin:22px 0 6px;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#7fd4a0;font-weight:600;animation:rise .7s .15s both}
-#splash h1{margin:0;min-height:2.4em;font-size:clamp(24px,6.5vw,34px);line-height:1.2;letter-spacing:.04em;text-transform:uppercase;font-weight:800;animation:rise .7s .3s both}
-#splash h1 .ln{display:block;min-height:1.2em;color:#e8f3ec}
-#splash h1 .ln+.ln{color:#22c55e}
-#splash h1 .cur{display:inline-block;width:3px;height:.95em;background:#4ade80;margin-left:3px;vertical-align:-.1em;animation:blink .8s steps(1) infinite}
-#splash .sub{margin:12px 0 0;font-size:14px;color:#9fb3a7;max-width:300px;animation:rise .7s .45s both}
-#splash .bar{margin-top:20px;width:min(220px,60vw);height:4px;border-radius:4px;background:rgba(255,255,255,.1);overflow:hidden;animation:rise .7s .6s both}
-#splash .bar i{display:block;height:100%;width:0;border-radius:4px;background:linear-gradient(90deg,#16a34a,#4ade80);transition:width .25s ease-out}
-#splash .pct{margin-top:14px;font-size:30px;font-weight:800;letter-spacing:.02em;color:#4ade80;font-variant-numeric:tabular-nums;animation:rise .7s .6s both}
-#splash .msg{margin-top:12px;font-size:12px;color:#7d9185;letter-spacing:.06em;animation:rise .7s .7s both}
-#splash .foot{position:absolute;bottom:18px;left:0;right:0;font-size:11px;color:#5f7367;letter-spacing:.05em}
-@keyframes blink{50%{opacity:0}}
-@keyframes pop{from{opacity:0;transform:scale(.7)}to{opacity:1;transform:none}}
-@keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
-@keyframes glow{0%,100%{box-shadow:0 0 0 1px rgba(34,197,94,.35),0 12px 40px rgba(34,197,94,.18)}50%{box-shadow:0 0 0 1px rgba(34,197,94,.6),0 12px 54px rgba(34,197,94,.4)}}
-@media (prefers-reduced-motion:reduce){#splash *{animation:none!important}}
+:root{--bg:#f2f6f3;--ink:#14231a;--mute:#5a6b61;--card:#fff;--line:#d3ddd6;--green:#16a34a;--btn:#0f7a3a}
+@media (prefers-color-scheme:dark){:root{--bg:#0e1411;--ink:#e8f3ec;--mute:#9fb3a7;--card:#16221b;--line:#2a3a31;--green:#4ade80;--btn:#16a34a}}
+html,body{margin:0;min-height:100%;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+body{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:24px max(16px,env(safe-area-inset-left)) 24px max(16px,env(safe-area-inset-right));box-sizing:border-box}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:28px 24px;max-width:420px;width:100%;text-align:center;box-shadow:0 10px 30px rgba(0,0,0,.08)}
+img{width:72px;height:72px;border-radius:18px}
+.co{margin:14px 0 4px;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--green);font-weight:700}
+h1{margin:0 0 8px;font-size:24px;line-height:1.2}
+p{margin:0 0 20px;color:var(--mute)}
+a.btn{display:block;background:var(--btn);color:#fff;text-decoration:none;font-weight:700;padding:14px 18px;border-radius:12px;font-size:17px}
+small{display:block;margin-top:14px;color:var(--mute);font-size:12px;word-break:break-all}
 </style></head><body>
-<div id="splash" role="status" aria-live="polite">
-<img class="logo" src="icon-192.png" alt="">
+<main class="card">
+<img src="icon-192.png" alt="">
 <div class="co">Engineering Unit Gen. Contracting LLC</div>
-<h1 aria-label="Stores Transfer System 2026"><span class="ln" id="tw1" aria-hidden="true"></span><span class="ln" id="tw2" aria-hidden="true"></span></h1>
-<p class="sub">Material transfer notes, returns and repairs, tracked in one place.</p>
-<div class="pct" id="spct">0%</div>
-<div class="bar" style="margin-top:12px"><i id="sbar"></i></div>
-<div class="msg" id="smsg">Loading, please wait…</div>
-<div class="foot">Stores Department · Abu Dhabi</div>
-</div>
-<iframe id="f" allow="camera *; microphone *; clipboard-write *; fullscreen *; web-share *" allowfullscreen></iframe>
+<h1>This link has expired</h1>
+<p>Transfer Note has moved to a new address. Please open the new link to continue.</p>
+<a class="btn" id="go" href="#">Open new link</a>
+<small id="u"></small>
+</main>
 <script>
-(function(){var a=["Stores Transfer","System 2026"],e=[document.getElementById("tw1"),document.getElementById("tw2")],c=document.createElement("i");c.className="cur";c.setAttribute("aria-hidden","true");
-var l=0,n=0;function step(){var t=a[l];e[l].textContent=t.slice(0,n);e[l].appendChild(c);
-if(n<t.length){n++;setTimeout(step,95)}else if(l<a.length-1){l++;n=0;setTimeout(step,260)}else{setTimeout(function(){e[0].textContent="";e[1].textContent="";l=0;n=0;step()},2200)}}
-setTimeout(step,500)})();
+var NEW_BASE = "https://transfer-note-engineering-unit-uae.github.io/transfer-note/";
+var target = NEW_BASE + location.search + location.hash;
+document.getElementById("go").href = target;
+document.getElementById("u").textContent = NEW_BASE;
+try{ if(navigator.serviceWorker){ navigator.serviceWorker.getRegistrations().then(function(rs){ rs.forEach(function(r){ r.unregister(); }); }); } }catch(e){}
+try{ if(window.caches){ caches.keys().then(function(ks){ ks.forEach(function(k){ caches.delete(k); }); }); } }catch(e){}
 </script>
-<script>
-var f=document.getElementById("f"),sp=document.getElementById("splash"),pc=document.getElementById("spct"),pb=document.getElementById("sbar"),t0=Date.now(),done=false,p=0;
-if(/[?&]r=/.test(location.search))document.getElementById("smsg").textContent="Opening your transfer note\u2026";
-function show(){var n=Math.min(100,Math.floor(p));pc.textContent=n+"%";pb.style.width=n+"%"}
-var tm=setInterval(function(){if(done)return;p+=(92-p)*0.05;show()},120);
-function hide(){if(done)return;done=true;clearInterval(tm);
-var c=setInterval(function(){p+=(100-p)*0.35+1;if(p>=100){p=100;clearInterval(c);show();setTimeout(function(){sp.classList.add("hide");setTimeout(function(){sp.style.display="none"},600)},350)}else show()},40)}
-window.addEventListener("message",function(e){if(e.data==="tn-ready")setTimeout(hide,500)});
-setTimeout(hide,12000);
-f.src="app.html"+location.search;
-</script>
-<script>if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js");</script>
 </body></html>

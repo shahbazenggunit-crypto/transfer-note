@@ -1,268 +1,32 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>EUGC Transfer Note</title>
-<style>html,body{margin:0;height:100%;background:#0e1411;color:#9fb3a7;font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}#tnmsg{display:flex;align-items:center;justify-content:center;height:100%;padding:24px;text-align:center;font-size:15px}</style></head>
-<body><div id="tnmsg">Loading…</div>
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="robots" content="noindex,nofollow"><title>Link Expired</title>
+<style>
+:root{--bg:#f2f6f3;--ink:#14231a;--mute:#5a6b61;--card:#fff;--line:#d3ddd6;--green:#16a34a;--btn:#0f7a3a}
+@media (prefers-color-scheme:dark){:root{--bg:#0e1411;--ink:#e8f3ec;--mute:#9fb3a7;--card:#16221b;--line:#2a3a31;--green:#4ade80;--btn:#16a34a}}
+html,body{margin:0;min-height:100%;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+body{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:24px max(16px,env(safe-area-inset-left)) 24px max(16px,env(safe-area-inset-right));box-sizing:border-box}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:28px 24px;max-width:420px;width:100%;text-align:center;box-shadow:0 10px 30px rgba(0,0,0,.08)}
+img{width:72px;height:72px;border-radius:18px}
+.co{margin:14px 0 4px;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--green);font-weight:700}
+h1{margin:0 0 8px;font-size:24px;line-height:1.2}
+p{margin:0 0 20px;color:var(--mute)}
+a.btn{display:block;background:var(--btn);color:#fff;text-decoration:none;font-weight:700;padding:14px 18px;border-radius:12px;font-size:17px}
+small{display:block;margin-top:14px;color:var(--mute);font-size:12px;word-break:break-all}
+</style></head><body>
+<main class="card">
+<img src="icon-192.png" alt="">
+<div class="co">Engineering Unit Gen. Contracting LLC</div>
+<h1>This link has expired</h1>
+<p>Transfer Note has moved to a new address. Please open the new link to continue.</p>
+<a class="btn" id="go" href="#">Open new link</a>
+<small id="u"></small>
+</main>
 <script>
-(function(){
-"use strict";
-var X="https://script.google.com/macros/s/AKfycbygXZuuaWuLRKp2kbSfOR9_1P4XC_TbMTyXzU83NsQIbp4TViTFauwW_O4QmRnBhh2P/exec";
-var params={}; try{ new URLSearchParams(location.search).forEach(function(v,k){params[k]=v;}); }catch(e){} params.via="pages";
-var NOOP=function(){};
-function ls(k,v){ try{ if(v===undefined) return localStorage.getItem(k); if(v===null){ localStorage.removeItem(k); return null; } localStorage.setItem(k,v); return v; }catch(e){ if(v!==undefined&&v!==null) throw new Error("Phone storage is full. Connect to the internet and sync first."); return null; } }
-function jget(k,d){ try{ var s=ls(k); return s?JSON.parse(s):d; }catch(e){ return d; } }
-function hsh(s){ var h=5381; s=String(s); for(var i=0;i<s.length;i++) h=((h<<5)+h+s.charCodeAt(i))|0; return (h>>>0).toString(36); }
-function up(r){ return String(r||"").trim().toUpperCase(); }
-function rid(){ return Math.random().toString(36).slice(2,8); }
-var offline=false, flushing=false;
-
-/* ---- network ---- */
-function net(fn,args,ms){
-  var ctl=window.AbortController?new AbortController():null, to=ctl?setTimeout(function(){ctl.abort();},ms||90000):0;
-  return fetch(X,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({fn:fn,args:args}),signal:ctl?ctl.signal:undefined})
-    .then(function(r){ clearTimeout(to); return r.json(); },function(err){ clearTimeout(to); var e=new Error("OFFLINE"); e.offline=true; e.detail=String(err&&err.message||err); throw e; })
-    .then(function(j){ offline=false; bar(); if(j&&j.ok) return j.result; throw new Error((j&&j.error)||"Server error. Try again."); });
-}
-function netR(fn,args,ms){ return net(fn,args,ms).catch(function(e){ if(e&&e.offline&&navigator.onLine!==false){ return new Promise(function(r){setTimeout(r,900);}).then(function(){ return net(fn,args,ms); }); } throw e; }).catch(function(e){ if(e&&e.offline){ offline=true; bar(); } throw e; }); }
-function needNet(){ return new Error("No internet. Connect and try again."); }
-function guard(fn,args){ return netR(fn,args).catch(function(e){ if(e&&e.offline) throw needNet(); throw e; }); }
-
-/* ---- queue of offline work ---- */
-function getQ(){ return jget("tn-q",[]); }
-function setQ(q){ ls("tn-q",JSON.stringify(q)); }
-function pend(){ return getQ().filter(function(j){return j.fn==="saveNote";}); }
-function synth(n,orig,owner,base){
-  var items=(n.items||[]).filter(function(it){return (it.desc||"").trim()||it.qty||(it.stock||"").trim();});
-  var tot=items.reduce(function(s,it){return s+(parseFloat(it.qty)||0);},0);
-  return Object.assign({},base||{},n,{items:items,total:tot,status:(base&&base.rcName)?"Received":(n.status||"Pending"),ownerName:(base&&base.ownerName)||(owner&&owner.name)||"",savedAt:new Date().toISOString(),photoIds:n.photoIds||[],_pending:true});
-}
-function nkey(code,owner){ return "tn-notes-"+hsh(code+"|"+(owner&&owner.name||"")+"|"+(owner&&owner.pin||"")); }
-function mergePending(list,code,owner){
-  var out=list.slice();
-  pend().forEach(function(j){
-    var n=j.args[0], orig=j.args[1]; var id=up(n.ref), oid=up(orig);
-    var idx=-1; out.forEach(function(x,i){ if(up(x.ref)===id||(oid&&up(x.ref)===oid)) idx=i; });
-    var s=synth(n,orig,j.args[3],idx>=0?out[idx]:null);
-    if(idx>=0) out[idx]=s; else out.unshift(s);
-  });
-  return out;
-}
-async function flush(){
-  if(flushing) return; flushing=true; var did=0;
-  try{
-    var map=jget("tn-qmap",{});
-    for(;;){
-      var q=getQ(), j=null; for(var i=0;i<q.length;i++){ if(!q[i].err){ j=q[i]; break; } }
-      if(!j) break;
-      var args=JSON.parse(JSON.stringify(j.args).replace(/q-[a-z0-9]{6}/g,function(m){return map[m]||m;}));
-      try{
-        if(j.fn==="uploadPhoto"){ var real=await net("uploadPhoto",args); map[j.qid]=real; ls("tn-qmap",JSON.stringify(map)); }
-        else if(j.fn==="saveNote"){
-          try{ await net("saveNote",args); }
-          catch(e){
-            if(e&&e.offline) throw e;
-            if(String(e.message).indexOf("already used")>=0&&!args[1]){
-              var mine=await net("listNotes",[args[2],args[3]]);
-              var has=mine.some(function(x){return up(x.ref)===up(args[0].ref);});
-              if(!has){ args[0].ref=args[0].ref+"-"+Math.floor(10+Math.random()*90); await net("saveNote",args); }
-            } else throw e;
-          }
-        }
-        q=getQ().filter(function(x){return x.id!==j.id;}); setQ(q); did++;
-      }catch(e){
-        if(e&&e.offline) break;
-        q=getQ(); q.forEach(function(x){ if(x.id===j.id) x.err=String(e.message||e); }); setQ(q);
-      }
-    }
-  }finally{ flushing=false; bar(); }
-  if(did&&window.refresh){ try{ window.refresh(); }catch(e){} toast("Offline notes synced"); }
-}
-function retryFailed(){ var q=getQ(); q.forEach(function(x){ delete x.err; }); setQ(q); flush(); }
-
-/* ---- routes (same names as the Apps Script functions) ---- */
-var routes={
-  verifyCode:function(a){ var code=a[0], k="tn-ver-"+hsh(code);
-    return netR("verifyCode",a).then(function(r){ try{ ls(k,r==="admin"?"a":"u"); }catch(e){} return r; },function(e){
-      if(e&&e.offline){ var c=ls(k); if(c) return c==="a"?"admin":true; throw new Error("No internet. Open the app once online first. ["+(e.detail||"?")+"]"); }
-      if(String(e.message).indexOf("ACCESS_DENIED")>=0) ls(k,null); throw e; }); },
-  getAppUrl:function(a){ return netR("getAppUrl",a).then(function(r){ ls("tn-appurl",r); return r; },function(e){ var c=ls("tn-appurl"); if(c) return c; throw e; }); },
-  listNotes:function(a){ var code=a[0], owner=a[1], k=nkey(code,owner);
-    return netR("listNotes",a).then(function(list){ try{ ls(k,JSON.stringify(list)); }catch(e){} flush(); return mergePending(list,code,owner); },function(e){
-      if(e&&e.offline){ var c=jget(k,null); if(c) return mergePending(c,code,owner); if(pend().length) return mergePending([],code,owner); throw new Error("No internet. Open the app once online to load your notes."); } throw e; }); },
-  saveNote:async function(a){
-    var n=a[0], orig=a[1], code=a[2], owner=a[3];
-    if(getQ().length) await flush();
-    try{ return await netR("saveNote",a); }
-    catch(e){
-      if(!(e&&e.offline)) throw e;
-      var q=getQ(); q=q.filter(function(x){ return !(x.fn==="saveNote"&&up(x.args[0].ref)===up(n.ref)&&!x.err); });
-      q.push({id:rid()+Date.now(),fn:"saveNote",args:a,t:Date.now()}); setQ(q); bar();
-      var base=null; var c=jget(nkey(code,owner),[]); c.forEach(function(x){ if(up(x.ref)===up(orig||n.ref)) base=x; });
-      return synth(n,orig,owner,base);
-    }
-  },
-  uploadPhoto:function(a){
-    return netR("uploadPhoto",a).catch(function(e){
-      if(!(e&&e.offline)) throw e;
-      var qid="q-"+rid(), q=getQ(); q.push({id:qid,qid:qid,fn:"uploadPhoto",args:a,t:Date.now()}); setQ(q); bar(); return qid;
-    });
-  },
-  getPhoto:function(a){
-    if(/^q-/.test(a[0])){ var j=getQ().filter(function(x){return x.qid===a[0];})[0]; if(j) return Promise.resolve(j.args[0]); var m=jget("tn-qmap",{}); if(m[a[0]]) a=[m[a[0]],a[1]]; else return Promise.reject(new Error("Photo not available.")); }
-    return guard("getPhoto",a);
-  },
-  receiverToken:function(a){ var k="tn-rt-"+hsh(a[0]); return netR("receiverToken",a).then(function(r){ try{ ls(k,r); }catch(e){} return r; },function(e){ var c=ls(k); if(c) return c; throw e; }); }
-};
-function handle(fn,a){
-  try{ var r=routes[fn]?routes[fn](a):guard(fn,a); return Promise.resolve(r); }catch(e){ return Promise.reject(e); }
-}
-function mk(ok,fail){
-  return new Proxy({},{get:function(_,k){
-    if(k==="withSuccessHandler") return function(f){ return mk(f,fail); };
-    if(k==="withFailureHandler") return function(f){ return mk(ok,f); };
-    return function(){ var a=[].slice.call(arguments); handle(k,a).then(ok||NOOP,fail||NOOP); };
-  }});
-}
-window.google={script:{run:mk(),url:{getLocation:function(cb){ cb({parameter:params,parameters:{}}); }}}};
-
-/* ---- status bar ---- */
-function toast(t){ var b=bar(true); if(!b) return; b.textContent=t; b.style.display="block"; setTimeout(function(){ bar(); },2600); }
-function bar(force){
-  if(!document.body) return null;
-  var b=document.getElementById("tn-bar");
-  if(!b){ b=document.createElement("div"); b.id="tn-bar"; b.style.cssText="position:fixed;left:8px;right:8px;bottom:8px;z-index:99999;display:none;padding:9px 12px;border-radius:10px;font:600 13px system-ui,Arial,sans-serif;text-align:center;box-shadow:0 4px 18px rgba(0,0,0,.35);cursor:pointer"; b.onclick=function(){ if(window.__tnUpdate) location.reload(); else retryFailed(); }; document.body.appendChild(b); }
-  if(force) return b;
-  var q=getQ(), n=q.filter(function(x){return x.fn==="saveNote";}).length, bad=q.filter(function(x){return x.err;}).length, t="", bg="#b45309", fg="#fff";
-  if(bad){ t=bad+" note(s) could not sync: "+(q.filter(function(x){return x.err;})[0].err)+" - tap to retry"; bg="#b91c1c"; }
-  else if(offline||navigator.onLine===false){ t="Offline"+(n?" - "+n+" note(s) waiting to sync":" - you can still create notes"); }
-  else if(n||q.length){ t="Syncing "+(n||q.length)+" item(s)..."; bg="#0a3c23"; }
-  else if(window.__tnUpdate){ t="Update ready. Tap here, or reopen the app."; bg="#0a3c23"; }
-  if(t){ b.textContent=t; b.style.background=bg; b.style.color=fg; b.style.display="block"; } else b.style.display="none";
-  return b;
-}
-
-/* ---- Android app (APK): save / share files through the phone's share sheet ---- */
-(function(){ try{
-  var C=null; try{ var cs=[window.Capacitor,parent&&parent.Capacitor,top&&top.Capacitor]; for(var ci=0;ci<cs.length;ci++){ if(cs[ci]&&cs[ci].registerPlugin){ C=cs[ci]; break; } } }catch(e){}
-  if(!C||!C.isNativePlatform||!C.isNativePlatform()) return;
-  var FS=C.registerPlugin("Filesystem"), SH=C.registerPlugin("Share"), blobs={};
-  var oc=URL.createObjectURL; URL.createObjectURL=function(b){ var u=oc.call(URL,b); try{ blobs[u]=b; }catch(e){} return u; };
-  function b64(b){ return new Promise(function(res,rej){ var f=new FileReader(); f.onload=function(){ res(String(f.result).split(",")[1]); }; f.onerror=rej; f.readAsDataURL(b); }); }
-  var FO=C.registerPlugin("FileOpener");
-  var MIME={pdf:"application/pdf",png:"image/png",jpg:"image/jpeg",xlsx:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",json:"application/json",eml:"message/rfc822"};
-  function ext(n){ var m=/\.([a-z0-9]+)$/i.exec(n||""); return m?m[1].toLowerCase():""; }
-  function save(b,name){
-    name=String(name||"file").replace(/[\\/:*?"<>|]+/g,"_");
-    return b64(b).then(function(d){ return FS.writeFile({path:"downloads/"+name,data:d,directory:"EXTERNAL",recursive:true}); }).then(function(w){
-      var list=jget("tn-files",[]).filter(function(f){ return f.name!==name; });
-      list.unshift({name:name,uri:w.uri,t:Date.now(),size:b.size||0,mime:b.type||MIME[ext(name)]||""});
-      try{ ls("tn-files",JSON.stringify(list.slice(0,60))); }catch(e){}
-      try{ toast(name); }catch(e){}
-      return w;
-    });
-  }
-  function out(b,name,title,text){
-    return save(b,name).then(function(w){ return SH.share({title:title||name||"File",text:text||"",url:w.uri,dialogTitle:"Save or share"}); });
-  }
-  function kb(n){ return n>1048576?(n/1048576).toFixed(1)+" MB":Math.max(1,Math.round(n/1024))+" KB"; }
-  function mkBtn(t,fn,red){ var x=document.createElement("button"); x.textContent=t; x.style.cssText="flex:1;padding:10px 6px;border-radius:9px;border:1px solid #2a3a31;background:"+(red?"#3a1515":"#16241c")+";color:"+(red?"#ffb4b4":"#e8f3ec")+";font:600 13px system-ui,Arial,sans-serif"; x.onclick=fn; return x; }
-  function openFile(f){ return FO.open({filePath:f.uri,contentType:f.mime||MIME[ext(f.name)]||"*/*",openWithDefault:false}).catch(function(){ return SH.share({title:f.name,url:f.uri,dialogTitle:"Open or share"}); }); }
-  function panel(){
-    var o=document.getElementById("tn-files"); if(o) o.parentNode.removeChild(o);
-    o=document.createElement("div"); o.id="tn-files";
-    o.style.cssText="position:fixed;top:0;left:0;right:0;bottom:0;z-index:100000;background:#0e1411;color:#e8f3ec;font:15px system-ui,Arial,sans-serif;overflow:auto;padding:16px 16px 48px;box-sizing:border-box";
-    var h=document.createElement("div"); h.style.cssText="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px";
-    var t=document.createElement("b"); t.textContent="Downloaded files"; t.style.fontSize="19px";
-    var cl=mkBtn("Close",function(){ o.parentNode.removeChild(o); }); cl.style.flex="none"; cl.style.padding="8px 16px";
-    h.appendChild(t); h.appendChild(cl); o.appendChild(h);
-    var sub=document.createElement("div"); sub.textContent="PDF, image, Excel and backup files you export are kept here."; sub.style.cssText="color:#8aa294;font-size:13px;margin-bottom:14px"; o.appendChild(sub);
-    var list=jget("tn-files",[]);
-    if(!list.length){ var e=document.createElement("div"); e.textContent="No files yet."; e.style.cssText="padding:30px 0;text-align:center;color:#8aa294"; o.appendChild(e); }
-    list.forEach(function(f){
-      var c=document.createElement("div"); c.style.cssText="background:#14201a;border:1px solid #24372c;border-radius:12px;padding:12px;margin-bottom:10px";
-      var n=document.createElement("div"); n.textContent=f.name; n.style.cssText="font-weight:700;word-break:break-all";
-      var m=document.createElement("div"); m.textContent=new Date(f.t).toLocaleString()+"  -  "+kb(f.size); m.style.cssText="color:#8aa294;font-size:12px;margin:3px 0 10px";
-      var r=document.createElement("div"); r.style.cssText="display:flex;gap:8px";
-      r.appendChild(mkBtn("Open",function(){ openFile(f); }));
-      r.appendChild(mkBtn("Share",function(){ SH.share({title:f.name,url:f.uri,dialogTitle:"Share"}).catch(function(){}); }));
-      r.appendChild(mkBtn("Delete",function(){
-        if(!confirm("Delete "+f.name+"?")) return;
-        FS.deleteFile({path:"downloads/"+f.name,directory:"EXTERNAL"}).catch(function(){}).then(function(){ ls("tn-files",JSON.stringify(jget("tn-files",[]).filter(function(x){ return x.name!==f.name; }))); panel(); });
-      },true));
-      c.appendChild(n); c.appendChild(m); c.appendChild(r); o.appendChild(c);
-    });
-    document.body.appendChild(o);
-  }
-  function toast(name){
-    var q=document.getElementById("tn-toast"); if(q&&q.parentNode) q.parentNode.removeChild(q);
-    if(!document.body) return;
-    var t=document.createElement("div"); t.id="tn-toast";
-    t.style.cssText="position:fixed;left:12px;right:12px;bottom:62px;z-index:100001;background:#16241c;color:#e8f3ec;border:1px solid #2f9e62;border-radius:12px;padding:12px;font:14px system-ui,Arial,sans-serif;display:flex;gap:10px;align-items:center;box-shadow:0 6px 24px rgba(0,0,0,.5)";
-    var m=document.createElement("div"); m.style.flex="1"; m.style.wordBreak="break-all"; m.textContent="Saved in app Files: "+name;
-    var b=mkBtn("Open Files",function(){ t.parentNode&&t.parentNode.removeChild(t); panel(); }); b.style.flex="none"; b.style.padding="8px 12px";
-    t.appendChild(m); t.appendChild(b); document.body.appendChild(t);
-    setTimeout(function(){ if(t.parentNode) t.parentNode.removeChild(t); },12000);
-  }
-  function fab(){
-    if(!document.body) return;
-    var f=document.getElementById("tn-fab");
-    var n=jget("tn-files",[]).length;
-    if(f){ f.textContent="Downloads ("+n+")  v7"; return; }
-    f=document.createElement("button"); f.id="tn-fab"; f.textContent="Downloads ("+n+")  v7";
-    f.style.cssText="position:fixed;left:0;right:0;bottom:0;height:52px;z-index:99999;border:0;border-top:1px solid #2a3a31;background:#16241c;color:#e8f3ec;font:700 15px system-ui,Arial,sans-serif";
-    f.onclick=panel; document.body.appendChild(f);
-    document.body.style.paddingBottom="56px";
-  }
-  setInterval(fab,1500);
-  window.tnFiles={open:panel};
-  var ac=HTMLAnchorElement.prototype.click;
-  function grab(a){
-    if(a&&a.download&&blobs[a.href]){ out(blobs[a.href],a.download).catch(function(e){ try{ alert("Could not save the file: "+(e&&e.message||e)); }catch(x){} }); return true; }
-    return false;
-  }
-  HTMLAnchorElement.prototype.click=function(){
-    if(grab(this)) return;
-    return ac.apply(this,arguments);
-  };
-  var ade=EventTarget.prototype.dispatchEvent;
-  EventTarget.prototype.dispatchEvent=function(ev){
-    if(ev&&ev.type==="click"&&this instanceof HTMLAnchorElement&&grab(this)) return true;
-    return ade.apply(this,arguments);
-  };
-  document.addEventListener("click",function(ev){ var a=ev.target&&ev.target.closest&&ev.target.closest("a[download]"); if(a&&grab(a)){ ev.preventDefault(); ev.stopPropagation(); } },true);
-  navigator.canShare=function(o){ return true; };
-  navigator.share=function(o){
-    o=o||{}; var f=o.files&&o.files[0];
-    if(f) return out(f,f.name,o.title,o.text);
-    return SH.share({title:o.title||"",text:o.text||"",url:o.url||undefined,dialogTitle:"Share"});
-  };
-}catch(e){ try{ window.addEventListener("load",function(){}); var iv=setInterval(function(){ if(!document.body) return; clearInterval(iv); var x=document.createElement("div"); x.style.cssText="position:fixed;left:0;right:0;bottom:0;z-index:99999;background:#7a1c1c;color:#fff;padding:10px;font:13px system-ui"; x.textContent="Files setup error: "+(e&&e.message||e); document.body.appendChild(x); },500); }catch(z){} } })();
-
-/* ---- load the app (cached copy first, so it opens without internet) ---- */
-function msg(t){ var m=document.getElementById("tnmsg"); if(m) m.textContent=t; }
-function cacheGet(){ return window.caches?caches.open("tn-html").then(function(c){return c.match("/app-html");}).then(function(r){return r?r.text():null;}).catch(function(){return null;}):Promise.resolve(null); }
-function cachePut(h){ return window.caches?caches.open("tn-html").then(function(c){return c.put("/app-html",new Response(h));}).catch(NOOP):Promise.resolve(); }
-function tmo(p,ms){ return new Promise(function(res,rej){ var t=setTimeout(function(){ rej(new Error("timed out")); },ms); p.then(function(v){ clearTimeout(t); res(v); },function(e){ clearTimeout(t); rej(e); }); }); }
-function fetchHtml(){ return tmo(fetch(X+"?api=html").then(function(r){return r.json();}),60000).then(function(j){ if(!j||!j.html||j.html.length<5000) throw new Error("bad reply"); return j; }); }
-function fetchVer(){ return tmo(fetch(X+"?api=ver").then(function(r){return r.json();}),30000).then(function(j){ return j&&j.v; }); }
-function fetchBundled(){ return fetch("bundled.html").then(function(r){ if(!r.ok) throw new Error("none"); return r.text(); }).then(function(h){ if(h.length<5000) throw new Error("none"); return fetch("bundled.ver").then(function(r){ return r.ok?r.text():""; }).catch(function(){ return ""; }).then(function(v){ return {html:h,v:String(v).trim()}; }); }); }
-function checkUpdate(cur){ fetchVer().then(function(v){ if(v&&v!==ls("tn-appv")){ return fetchHtml().then(function(j){ return cachePut(j.html).then(function(){ ls("tn-appv",j.v); if(j.html!==cur){ window.__tnUpdate=true; bar(); } }); }); } }).catch(NOOP); }
-function fail(e){ var m=document.getElementById("tnmsg"); if(m){ m.textContent="Could not load the app ("+(e&&e.message||e)+"). Check internet and tap here to try again."; m.onclick=function(){ location.reload(); }; } try{ parent.postMessage("tn-ready","*"); }catch(x){} }
-function boot(html){
-  window.__tnInit=function(){
-    try{ parent.postMessage("tn-ready","*"); }catch(e){}
-    bar();
-    window.addEventListener("online",function(){ offline=false; bar(); flush(); });
-    window.addEventListener("offline",function(){ offline=true; bar(); });
-    setInterval(function(){ if(navigator.onLine!==false&&getQ().length) flush(); },30000);
-    setTimeout(function(){ if(navigator.onLine!==false&&getQ().length) flush(); },2500);
-  };
-  document.open(); document.write(html+"<scr"+"ipt>window.__tnInit&&window.__tnInit()</scr"+"ipt>"); document.close();
-}
-cacheGet().then(function(cached){
-  if(cached){ boot(cached); checkUpdate(cached); return; }
-  fetchBundled().then(function(b){ cachePut(b.html); if(b.v) ls("tn-appv",b.v); boot(b.html); checkUpdate(b.html); },function(){
-    msg("Loading app... (first open needs internet)");
-    fetchHtml().then(function(j){ cachePut(j.html); try{ ls("tn-appv",j.v); }catch(e){} boot(j.html); }).catch(fail);
-  });
-});
-})();
-</script></body></html>
+var NEW_BASE = "https://transfer-note-engineering-unit-uae.github.io/transfer-note/";
+var target = NEW_BASE + location.search + location.hash;
+document.getElementById("go").href = target;
+document.getElementById("u").textContent = NEW_BASE;
+try{ if(navigator.serviceWorker){ navigator.serviceWorker.getRegistrations().then(function(rs){ rs.forEach(function(r){ r.unregister(); }); }); } }catch(e){}
+try{ if(window.caches){ caches.keys().then(function(ks){ ks.forEach(function(k){ caches.delete(k); }); }); } }catch(e){}
+</script>
+</body></html>
